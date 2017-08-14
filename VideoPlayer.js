@@ -7,13 +7,13 @@ import {
     StyleSheet,
     Touchable,
     Animated,
-    Platform,
     Easing,
     Image,
     View,
     Text
 } from 'react-native';
 import _ from 'lodash';
+import IconMA from 'react-native-vector-icons/MaterialIcons';
 
 export default class VideoPlayer extends Component {
 
@@ -24,7 +24,7 @@ export default class VideoPlayer extends Component {
          * All of our values that are updated by the
          * methods and listeners in this class
          */
-        const isFullscreen = this.props.resizeMode === 'cover' || false;
+        //const isFullscreen = false; //this.props.resizeMode === 'cover' || false;
         this.state = {
             // Video
             resizeMode: this.props.resizeMode || 'contain',
@@ -33,7 +33,7 @@ export default class VideoPlayer extends Component {
             volume: this.props.volume || 1,
             rate: this.props.rate || 1,
             // Controls
-            isFullscreen: isFullscreen,
+            isFullscreen: this.props.fullScreen,
             showTimeRemaining: true,
             volumeTrackWidth: 0,
             lastScreenPress: 0,
@@ -65,12 +65,12 @@ export default class VideoPlayer extends Component {
          * Our app listeners and associated methods
          */
         this.events = {
+            onLoadStart: this.props.onLoadStart || this._onLoadStart.bind( this ),
+            onProgress: this.props.onProgress || this._onProgress.bind( this ),
             onError: this.props.onError || this._onError.bind( this ),
+            onLoad: this.props.onLoad || this._onLoad.bind( this ),
             onEnd: this.props.onEnd || this._onEnd.bind( this ),
             onScreenPress: this._onScreenPress.bind( this ),
-            onLoadStart: this._onLoadStart.bind( this ),
-            onProgress: this._onProgress.bind( this ),
-            onLoad: this._onLoad.bind( this ),
         };
 
         /**
@@ -126,6 +126,9 @@ export default class VideoPlayer extends Component {
             videoStyle: this.props.videoStyle || {},
             containerStyle: this.props.style || {}
         };
+
+
+        this.showFullscreen.bind(this);
     }
 
 
@@ -149,10 +152,6 @@ export default class VideoPlayer extends Component {
         state.loading = true;
         this.loadAnimation();
         this.setState( state );
-
-        if ( typeof this.props.onLoadStart === 'function' ) {
-            this.props.onLoadStart(...arguments);
-        }
     }
 
     /**
@@ -172,10 +171,6 @@ export default class VideoPlayer extends Component {
         if ( state.showControls ) {
             this.setControlTimeout();
         }
-
-        if ( typeof this.props.onLoad === 'function' ) {
-            this.props.onLoad(...arguments);
-        }
     }
 
     /**
@@ -191,10 +186,6 @@ export default class VideoPlayer extends Component {
         if ( ! state.seeking ) {
             const position = this.calculateSeekerPosition();
             this.setSeekerPosition( position );
-        }
-
-        if ( typeof this.props.onProgress === 'function' ) {
-            this.props.onProgress(...arguments);
         }
 
         this.setState( state );
@@ -218,6 +209,8 @@ export default class VideoPlayer extends Component {
         let state = this.state;
         state.error = true;
         state.loading = false;
+
+        console.log(err);
 
         this.setState( state );
     }
@@ -399,8 +392,11 @@ export default class VideoPlayer extends Component {
      */
     _toggleFullscreen() {
         let state = this.state;
-        state.isFullscreen = ! state.isFullscreen;
-        state.resizeMode = state.isFullscreen === true ? 'cover' : 'contain';
+        let isFullScreen = ! state.isFullscreen;
+        state.isFullscreen = isFullScreen;
+
+        this.props.onChangeScreenMode && this.props.onChangeScreenMode(isFullScreen);
+        //state.resizeMode = state.isFullscreen === true ? 'cover' : 'contain';
 
         this.setState( state );
     }
@@ -466,11 +462,8 @@ export default class VideoPlayer extends Component {
         const minutes = time / 60;
         const seconds = time % 60;
 
-        const formattedMinutes = _.padStart( Math.floor( minutes ).toFixed( 0 ), 2, 0 );
-        const formattedSeconds = _.padStart( Math.floor( seconds ).toFixed( 0 ), 2 , 0 );
-
-        // console.warn(formattedMinutes);
-
+        const formattedMinutes = _.padStart( minutes.toFixed( 0 ), 2, 0 );
+        const formattedSeconds = _.padStart( seconds.toFixed( 0 ), 2 , 0 );
 
         return `${ symbol }${ formattedMinutes }:${ formattedSeconds }`;
     }
@@ -815,11 +808,13 @@ export default class VideoPlayer extends Component {
      * Back button control
      */
     renderBack() {
+        if (this.props.hideBack) return <View style={{height:16, width:16}} />;
         return this.renderControl(
-            <Image
+            <IconMA name={this.props.iconBack} color="white" size={24} />,
+            /*<Image
                 source={ require( './assets/img/back.png' ) }
                 style={ styles.controls.back }
-            />,
+            />,*/
             this.methods.onBack,
             styles.controls.back
         );
@@ -1022,6 +1017,10 @@ export default class VideoPlayer extends Component {
         return null;
     }
 
+    showFullscreen(){
+        this.player.ref.presentFullscreenPlayer();
+    }
+
     /**
      * Provide all of our options and render the whole component.
      */
@@ -1033,7 +1032,6 @@ export default class VideoPlayer extends Component {
             >
                 <View style={[ styles.player.container, this.styles.containerStyle ]}>
                     <Video
-                        {...this.props}
                         ref={ videoPlayer => this.player.ref = videoPlayer }
 
                         resizeMode={ this.state.resizeMode }
@@ -1042,7 +1040,9 @@ export default class VideoPlayer extends Component {
                         muted={ this.state.muted }
                         rate={ this.state.rate }
 
-                        { ...this.props }
+                        playInBackground={ this.opts.playInBackground }
+                        playWhenInactive={ this.opts.playWhenInactive }
+                        repeat={ this.opts.repeat }
 
                         onLoadStart={ this.events.onLoadStart }
                         onProgress={ this.events.onProgress }
@@ -1062,6 +1062,17 @@ export default class VideoPlayer extends Component {
             </TouchableWithoutFeedback>
         );
     }
+
+
+    getSyleFullScreen(){
+        if (this.state.isFullscreen){
+            console.log('devuelve estilos', "flex:1, zIndex: 1000, backgroundColor:'black', position:'absolute', top:0, left:0, width:400, height:600");
+            return {flex:1, zIndex: 999000, backgroundColor:'black', position:'absolute', top:0, left:0, width:400, height:800};
+        }else{
+            return {};
+        }
+    }
+
 }
 
 /**
@@ -1072,12 +1083,11 @@ export default class VideoPlayer extends Component {
 const styles = {
     player: StyleSheet.create({
         container: {
-            flex: Platform.OS === 'ios' ? 1 : null,
+            /*flex: 1,*/
             alignSelf: 'stretch',
             justifyContent: 'space-between',
         },
         video: {
-            overflow: 'hidden',
             position: 'absolute',
             top: 0,
             right: 0,
@@ -1163,7 +1173,7 @@ const styles = {
             justifyContent: 'center',
             zIndex: 100,
             marginTop: 24,
-            marginBottom: 8
+            marginBottom: 0,
         },
         topControlGroup: {
             alignSelf: 'stretch',
@@ -1181,7 +1191,7 @@ const styles = {
             flexDirection: 'row',
             marginLeft: 12,
             marginRight: 12,
-            marginBottom: 0
+            marginBottom: 0,
         },
         volume: {
             flexDirection: 'row',
@@ -1190,9 +1200,7 @@ const styles = {
             flexDirection: 'row',
         },
         playPause: {
-            position: 'relative',
             width: 80,
-            zIndex: 0
         },
         title: {
             alignItems: 'center',
