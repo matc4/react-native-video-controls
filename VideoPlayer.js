@@ -10,10 +10,13 @@ import {
     Easing,
     Image,
     View,
-    Text
+    Text,
+    Dimensions
 } from 'react-native';
 import _ from 'lodash';
 import IconMA from 'react-native-vector-icons/MaterialIcons';
+
+const screen = Dimensions.get('window');
 
 export default class VideoPlayer extends Component {
 
@@ -49,6 +52,8 @@ export default class VideoPlayer extends Component {
             currentTime: 0,
             error: false,
             duration: 0,
+            width:screen.width-32,
+            height:200,
         };
 
         /**
@@ -1021,6 +1026,9 @@ export default class VideoPlayer extends Component {
         this.player.ref.presentFullscreenPlayer();
     }
 
+    updateContent(width,height){
+        this.setState({width:width, height:height})
+    }
     /**
      * Provide all of our options and render the whole component.
      */
@@ -1030,7 +1038,7 @@ export default class VideoPlayer extends Component {
                 onPress={ this.events.onScreenPress }
                 style={[ styles.player.container, this.styles.containerStyle ]}
             >
-                <View style={[ styles.player.container, this.styles.containerStyle ]}>
+                <View style={[ styles.player.container, this.styles.containerStyle,{width:this.state.width, height:this.state.height} ]} onLayout={(evt)=>this.props.onLayout(evt)}>
                     <Video
                         ref={ videoPlayer => this.player.ref = videoPlayer }
 
@@ -1050,7 +1058,7 @@ export default class VideoPlayer extends Component {
                         onLoad={ this.events.onLoad }
                         onEnd={ this.events.onEnd }
 
-                        style={[ styles.player.video, this.styles.videoStyle ]}
+                        style={[ styles.player.video, this.styles.videoStyle,{width:this.state.width, height:this.state.height} ]}
 
                         source={ this.props.source }
                     />
